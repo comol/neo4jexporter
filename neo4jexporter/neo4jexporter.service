@@ -1,0 +1,10 @@
+﻿[Unit]
+Description=Neo4j Prometheus exporter
+
+[Service]
+ExecStart=dotnet /home/user/neo4jexporter/neo4jexporter.dll
+SyslogIdentifier=neo4jexporter
+User=user
+
+[Install]
+WantedBy=multi-user.target

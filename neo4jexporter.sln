@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32616.157
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "neo4jexporter", "neo4jexporter\neo4jexporter.csproj", "{71BD84BB-6B88-4777-A288-921B260D7D63}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{71BD84BB-6B88-4777-A288-921B260D7D63}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71BD84BB-6B88-4777-A288-921B260D7D63}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71BD84BB-6B88-4777-A288-921B260D7D63}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71BD84BB-6B88-4777-A288-921B260D7D63}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {594F785C-E643-46C9-A04F-402CF5FFBB44}
+	EndGlobalSection
+EndGlobal

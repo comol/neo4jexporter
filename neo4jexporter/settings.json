@@ -1,0 +1,7 @@
+﻿{
+    "port": 7865,
+    "delay": 5,
+    "neoaddress": "localhost",
+    "neouser": "neo4j",
+    "neopassword":  "neo4j"
+}
