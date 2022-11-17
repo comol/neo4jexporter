@@ -3,5 +3,6 @@
     "delay": 5,
     "neoaddress": "localhost",
     "neouser": "neo4j",
-    "neopassword":  "neo4j"
+    "neopassword":  "neo4j",
+     "testdelaymultiply": 60
 }
