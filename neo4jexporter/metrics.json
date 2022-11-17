@@ -3,26 +3,36 @@
         {
             "name": "neo4j_address_search_request",
             "description": "Request for address time in milliseconds",
-            "query": "MATCH(a:Address{address:'11111'}) RETURN a"
+            "query": "MATCH(a:Address{address:'11111'}) RETURN a", 
+            "count": 1,
+            "istest": true
         },
         {
             "name": "neo4j_transaction_search_request",
             "description": "Request for transaction time in milliseconds",
-            "query": "MATCH(a:Transaction{txid:'111111'}) RETURN a"
+            "query": "MATCH(a:Transaction{txid:'111111'}) RETURN a",
+            "count": 1,
+            "istest": true
         },
         {
             "name": "neo4j_block_search_request",
             "description": "Request for block time in milliseconds",
-            "query": "MATCH(a:Bock{hash:'1111111'}) RETURN a"
+            "query": "MATCH(a:Bock{hash:'1111111'}) RETURN a",
+            "count": 1,
+            "istest": false
         },
         {
             "name": "neo4j_addresses_in_transaction_reqest",
             "description": "Request for addresses in transaction time in milliseconds",
-            "query": "MATCH (a:Address)-[:SENDS]->(t:Transaction {txid: '111111'}) RETURN count(a)"
+            "query": "MATCH (a:Address)-[:SENDS]->(t:Transaction {txid: '111111'}) RETURN count(a)",
+            "count": 1,
+            "istest": false
         },
         {
             "name": "neo4j_transaction_scan",
             "description": "Request for transactions time in milliseconds",
-            "query": "MATCH(t:Transaction) WHERE t.nvin > 1000 RETURN t LIMIT 1"
+            "query": "MATCH(t:Transaction) WHERE t.nvin > 1000 RETURN t LIMIT 1",
+            "count": 1,
+            "istest": true
         }
     ]
