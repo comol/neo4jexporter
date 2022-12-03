@@ -15,6 +15,7 @@ class Program
         public string query { get; set; }
         public int count { get; set; }
         public bool istest { get; set; }
+        public bool enabled { get; set; }
         public Gauge metric { get; set; }
     };
 
@@ -68,17 +69,18 @@ class Program
         Gauge connmetric = Metrics.CreateGauge("neo4j_connections_count", "Number of active connections to server");
         Gauge tranmetric = Metrics.CreateGauge("neo4j_transaction_count", "Number of active transactions on server");
         Settings appsettings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText("settings.json"));
-        List<Metric> metricslist = JsonConvert.DeserializeObject<List<Metric>>(File.ReadAllText("metrics.json"));
-        foreach(Metric mt in metricslist)
-        {
-            mt.metric = Metrics.CreateGauge(mt.name, mt.description);
-        }
-
+        
         var server = new KestrelMetricServer(port: appsettings.port);
         server.Start();
 
         while (true)
         {
+            List<Metric> metricslist = JsonConvert.DeserializeObject<List<Metric>>(File.ReadAllText("metrics.json"));
+            foreach (Metric mt in metricslist)
+            {
+                mt.metric = Metrics.CreateGauge(mt.name, mt.description);
+            }
+
             try
             {
                 _driver = GraphDatabase.Driver("neo4j://" + appsettings.neoaddress, AuthTokens.Basic(appsettings.neouser , appsettings.neopassword));
@@ -139,6 +141,10 @@ class Program
             }
             catch(Exception ex)
             {
+                foreach (Metric mt in metricslist)
+                {
+                    mt.metric.Set(-1);
+                }
                 Thread.Sleep(TimeSpan.FromSeconds(120));
                 Console.WriteLine("Exception with connection..." + ex.Message);
             }
