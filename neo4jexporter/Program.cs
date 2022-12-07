@@ -4,6 +4,11 @@ using System.Threading;
 using Neo4j.Driver;
 using System.Diagnostics;
 using Newtonsoft.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using System.IO;
+using System.Text;
+using System.Net;
 
 class Program
 {
@@ -22,6 +27,7 @@ class Program
     public class Settings
     {
         public int port { get; set; }
+        public int httpport { get; set; }
         public int delay { get; set; }
         public int testdelaymultiply { get; set; }
         public string neoaddress { get; set; }
@@ -48,7 +54,7 @@ class Program
         {
             Counter.Set(-1);
             watch.Reset();
-            Console.WriteLine("Error executing request..." + ex.Message);
+            File.AppendAllText("log.txt", DateTime.Now.ToString() + "Error executing request..." + ex.Message + " \n");
             return;
         }
 
@@ -66,30 +72,78 @@ class Program
 
     static void Main()
     {
+        List<Metric> prevmetricslist = new List<Metric>();
+        List<Metric> metricslist = new List<Metric>();
+        Settings appsettings = new Settings();
+
+        //start http server to read logs
+        Thread HttpThread = new Thread(LogListener);
+        HttpThread.Start();
+
+        // standard metrics
         Gauge connmetric = Metrics.CreateGauge("neo4j_connections_count", "Number of active connections to server");
         Gauge tranmetric = Metrics.CreateGauge("neo4j_transaction_count", "Number of active transactions on server");
-        Settings appsettings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText("settings.json"));
-        
+        try
+        {
+            appsettings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText("settings.json"));
+        }
+        catch (Exception ex)
+        {
+            File.AppendAllText("log.txt", DateTime.Now.ToString() + "Exception while reading settings..." + ex.Message + " \n");
+        }
+
+        // prometheus server start
         var server = new KestrelMetricServer(port: appsettings.port);
         server.Start();
 
+        // main circle to connect neo4j infinity
         while (true)
         {
-            List<Metric> metricslist = JsonConvert.DeserializeObject<List<Metric>>(File.ReadAllText("metrics.json"));
-            foreach (Metric mt in metricslist)
-            {
-                mt.metric = Metrics.CreateGauge(mt.name, mt.description);
-            }
-
             try
             {
                 _driver = GraphDatabase.Driver("neo4j://" + appsettings.neoaddress, AuthTokens.Basic(appsettings.neouser , appsettings.neopassword));
                 using (var session = _driver.Session())
                 {
                     int testdelay = 0;
-                    Console.WriteLine("Exporter started...");
+                    File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Exporter Started... \n");
+                    
+                    // metrics circle
                     while (true)
                     {
+                        // read metrics from file
+                        try
+                        {
+                            prevmetricslist = JsonConvert.DeserializeObject<List<Metric>>(File.ReadAllText("metrics.json"));
+                        }
+                        catch (Exception ex)
+                        {
+                            File.AppendAllText("log.txt", DateTime.Now.ToString() + "Exception while reading metrics list..." + ex.Message + " \n");
+                            Thread.Sleep(TimeSpan.FromSeconds(120));
+                            continue;
+                        }
+
+                        // clear metrics
+                        foreach (Metric mt in metricslist)
+                        {
+                            mt.metric.Unpublish();
+                        }
+                        metricslist = new List<Metric>();
+                        
+                        // add only enabled metrics to list
+                        foreach (Metric pmt in prevmetricslist)
+                        {
+                            if (pmt.enabled)
+                            {
+                                metricslist.Add(pmt);
+                            }
+                        }
+                        
+                        // add prometheus metrics
+                        foreach (Metric mt in metricslist)
+                        {                           
+                            mt.metric = Metrics.CreateGauge(mt.name, mt.description);                            
+                        }
+                        
                         // query log
                         IResult res = session.Run("show transactions");
                         int numtran = 0;
@@ -146,8 +200,34 @@ class Program
                     mt.metric.Set(-1);
                 }
                 Thread.Sleep(TimeSpan.FromSeconds(120));
-                Console.WriteLine("Exception with connection..." + ex.Message);
+                File.AppendAllText("log.txt", DateTime.Now.ToString() + "Exception with connection..." + ex.Message + " \n");
             }
         }
+    }
+
+
+    public static void LogListener()
+    {
+        Settings st = JsonConvert.DeserializeObject<Settings>(File.ReadAllText("settings.json"));
+        HttpListener listener = new HttpListener();
+        listener.Prefixes.Add("http://*:" + st.httpport.ToString() + "/D651F1C2CCF042BEA725C462286B2F82/");
+        listener.Start();
+        File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Http listener started... \n");
+        while (true)
+        {
+            HttpListenerContext context = listener.GetContext();
+            HttpListenerRequest request = context.Request;
+            HttpListenerResponse response = context.Response;
+            string logtext = File.ReadAllText("querylog.txt");
+            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(logtext);
+            // Get a response stream and write the response to it.
+            response.ContentLength64 = buffer.Length;
+            System.IO.Stream output = response.OutputStream;
+            output.Write(buffer, 0, buffer.Length);
+            // You must close the output stream.
+            output.Close();
+        }
+        listener.Stop();
+        File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Http listener ended... \n");
     }
 }
