@@ -54,7 +54,7 @@ class Program
         {
             Counter.Set(-1);
             watch.Reset();
-            File.AppendAllText("log.txt", DateTime.Now.ToString() + "Error executing request..." + ex.Message + " \n");
+            File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Error executing request..." + ex.Message + " \n");
             return;
         }
 
@@ -68,6 +68,30 @@ class Program
         }   
         
         watch.Reset();
+    }
+
+    static int CountTransactions(ISession session)
+    {
+        int numtran = 0;
+
+        for (int i = 0; i < 3; i++) 
+        {        
+            IResult res = session.Run("show transactions");
+            foreach (var record in res)
+            {
+                string query = record["currentQuery"].ToString();
+                if (query != "show transactions")
+                {
+                    if (query.Trim().Length > 0)
+                    {
+                        File.AppendAllText("querylog.txt", DateTime.Now.ToString() + ": " + query + "\n");
+                        numtran = 1;
+                    }
+                }
+            }
+            Thread.Sleep(300);
+        }
+        return numtran;
     }
 
     static void Main()
@@ -89,7 +113,7 @@ class Program
         }
         catch (Exception ex)
         {
-            File.AppendAllText("log.txt", DateTime.Now.ToString() + "Exception while reading settings..." + ex.Message + " \n");
+            File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Exception while reading settings..." + ex.Message + " \n");
         }
 
         // prometheus server start
@@ -117,7 +141,7 @@ class Program
                         }
                         catch (Exception ex)
                         {
-                            File.AppendAllText("log.txt", DateTime.Now.ToString() + "Exception while reading metrics list..." + ex.Message + " \n");
+                            File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Exception while reading metrics list..." + ex.Message + " \n");
                             Thread.Sleep(TimeSpan.FromSeconds(120));
                             continue;
                         }
@@ -144,21 +168,8 @@ class Program
                             mt.metric = Metrics.CreateGauge(mt.name, mt.description);                            
                         }
                         
-                        // query log
-                        IResult res = session.Run("show transactions");
-                        int numtran = 0;
-                        foreach (var record in res)
-                        {
-                            string query = record["currentQuery"].ToString();
-                            if (query != "show transactions")
-                            {
-                                if (query.Trim().Length > 0)
-                                {
-                                    File.AppendAllText("querylog.txt", DateTime.Now.ToString() + ": " + query + "\n");
-                                    numtran++;
-                                }
-                            }
-                        }
+                        // number of transactions
+                        int numtran = CountTransactions(session);
                         tranmetric.Set(numtran);
 
                         // number of connections
@@ -166,26 +177,30 @@ class Program
                         int numrecords = res2.Count();
                         connmetric.Set(numrecords);
 
-                        // base metrics
-                        foreach (Metric mt in metricslist)
-                        {
-                            if (!mt.istest)
-                            {
-                                Program.AddMetric(mt.metric, mt.query, mt.count, session);
-                            }
-                        }
+                        //transactional metrics only when no transactions in neo
+                        if (numtran == 0) { 
 
-                        // tests run with more delay
-                        if(testdelay > appsettings.delay * appsettings.testdelaymultiply)
-                        {
+                            // base metrics
                             foreach (Metric mt in metricslist)
                             {
-                                if (mt.istest)
+                                if (!mt.istest)
                                 {
                                     Program.AddMetric(mt.metric, mt.query, mt.count, session);
                                 }
                             }
-                            testdelay = 0;
+
+                            // tests run with more delay
+                            if(testdelay > appsettings.delay * appsettings.testdelaymultiply)
+                            {
+                                foreach (Metric mt in metricslist)
+                                {
+                                    if (mt.istest)
+                                    {
+                                        Program.AddMetric(mt.metric, mt.query, mt.count, session);
+                                    }
+                                }
+                                testdelay = 0;
+                            }
                         }
 
                         testdelay = testdelay + appsettings.delay;
@@ -200,7 +215,7 @@ class Program
                     mt.metric.Set(-1);
                 }
                 Thread.Sleep(TimeSpan.FromSeconds(120));
-                File.AppendAllText("log.txt", DateTime.Now.ToString() + "Exception with connection..." + ex.Message + " \n");
+                File.AppendAllText("log.txt", DateTime.Now.ToString() + ": Exception with connection..." + ex.Message + " \n");
             }
         }
     }
@@ -218,7 +233,10 @@ class Program
             HttpListenerContext context = listener.GetContext();
             HttpListenerRequest request = context.Request;
             HttpListenerResponse response = context.Response;
+            //TODO или пагинация или хотя бы читать только концовку файла
+            //string logtext = File.ReadLines("querylog.txt").TakeLast(1000).ToString();
             string logtext = File.ReadAllText("querylog.txt");
+            
             byte[] buffer = System.Text.Encoding.UTF8.GetBytes(logtext);
             // Get a response stream and write the response to it.
             response.ContentLength64 = buffer.Length;
